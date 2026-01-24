@@ -143,7 +143,7 @@ NOTES:
  */
 int bitXor(int x, int y)
 {
-  return 2;
+  return ~(~(x & ~y) & ~(~x & y));
 }
 /*
  * tmin - return minimum two's complement integer
@@ -153,8 +153,7 @@ int bitXor(int x, int y)
  */
 int tmin(void)
 {
-
-  return 2;
+  return 1 << 31;
 }
 // 2
 /*
@@ -166,7 +165,11 @@ int tmin(void)
  */
 int isTmax(int x)
 {
-  return 2;
+  int plusOne = x + 1;
+  int isNotMinusOne = !!plusOne;
+
+  int looksLikeTmax = !(~(plusOne ^ x));
+  return isNotMinusOne & looksLikeTmax;
 }
 /*
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
@@ -178,7 +181,12 @@ int isTmax(int x)
  */
 int allOddBits(int x)
 {
-  return 2;
+  int A = 0xAA;
+  int AA = (A << 8) | A;
+  int mask = (AA << 16) | AA;
+
+  int removeEven = mask & x;
+  return !(removeEven ^ mask);
 }
 /*
  * negate - return -x
@@ -189,7 +197,7 @@ int allOddBits(int x)
  */
 int negate(int x)
 {
-  return 2;
+  return ~x + 1;
 }
 // 3
 /*
@@ -203,7 +211,9 @@ int negate(int x)
  */
 int isAsciiDigit(int x)
 {
-  return 2;
+  int lessThan39 = (0x39 + (~x + 1));
+  int greaterThan30 = (x + (~0x30 + 1));
+  return !(greaterThan30 >> 31) & !(lessThan39 >> 31);
 }
 /*
  * conditional - same as x ? y : z
@@ -214,7 +224,9 @@ int isAsciiDigit(int x)
  */
 int conditional(int x, int y, int z)
 {
-  return 2;
+  int isTrue = !!x;
+  int mask = (~isTrue + 1);
+  return (mask & y) | (~mask & z);
 }
 /*
  * isLessOrEqual - if x <= y  then return 1, else return 0
@@ -225,7 +237,7 @@ int conditional(int x, int y, int z)
  */
 int isLessOrEqual(int x, int y)
 {
-  return 2;
+  return !((y + (~x + 1)) >> 31);
 }
 // 4
 /*
@@ -238,7 +250,8 @@ int isLessOrEqual(int x, int y)
  */
 int logicalNeg(int x)
 {
-  return 2;
+  int neg = (~x + 1);
+  return ((x | neg) >> 31) + 1;
 }
 /* howManyBits - return the minimum number of bits required to represent x in
  *             two's complement
@@ -254,7 +267,30 @@ int logicalNeg(int x)
  */
 int howManyBits(int x)
 {
-  return 0;
+  int b16, b8, b4, b2, b1, b0;
+  int sign;
+
+  sign = x >> 31;
+  x = (sign & ~x) | (~sign & x);
+
+  b16 = (!!(x >> 16)) << 4;
+  x = x >> b16;
+
+  b8 = (!!(x >> 8)) << 3;
+  x = x >> b8;
+
+  b4 = (!!(x >> 4)) << 2;
+  x = x >> b4;
+
+  b2 = (!!(x >> 2)) << 1;
+  x = x >> b2;
+
+  b1 = (!!(x >> 1)) << 0;
+  x = x >> b1;
+
+  b0 = !!x;
+
+  return b16 + b8 + b4 + b2 + b1 + b0 + 1;
 }
 // float
 /*
