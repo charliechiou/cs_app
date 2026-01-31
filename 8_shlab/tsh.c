@@ -3,6 +3,7 @@
  *
  * <Put your name and login ID here>
  */
+#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -96,9 +97,11 @@ int main(int argc, char **argv)
 
     /* Redirect stderr to stdout (so that driver will get all output
      * on the pipe connected to stdout) */
+    // fd = 2 表示 stderr; fd = 1 表示 stdout, 使用 dup2 把 stderr(2) 也同樣輸出在 stdout(1) 上
     dup2(1, 2);
 
     /* Parse the command line */
+    // getopt 用來解析命令列參數, 可以處理以 -h -v -p 開頭的選項
     while ((c = getopt(argc, argv, "hvp")) != EOF)
     {
         switch (c)
@@ -170,6 +173,53 @@ int main(int argc, char **argv)
  */
 void eval(char *cmdline)
 {
+    char *argv[MAXARGS];
+    pid_t pid;
+
+    int bg = parseline(cmdline, argv);
+
+    if (strcmp(argv[0], "quit") == 0)
+    {
+        exit(1);
+    }
+
+    if (strcmp(argv[0], "clear") == 0)
+    {
+        printf("\033[H\033[2J");
+        fflush(stdout);
+        return;
+    }
+
+    sigset_t mask, prev_mask;
+    sigfillset(&mask);
+    sigprocmask(SIG_BLOCK, &mask, &prev_mask);
+    if ((pid = fork()) == 0)
+    {
+        setpgid(0, 0);
+        if (execve(argv[0], argv, environ) < 0)
+        {
+            printf("%s: Command not found.\n", argv[0]);
+            exit(0);
+        }
+    }
+    else
+    {
+        if (!bg)
+        {
+            addjob(jobs, pid, FG, cmdline);
+            sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+            waitpid(pid, NULL, 0);
+        }
+        else
+        {
+            printf("Run at background!");
+            sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+            addjob(jobs, pid, BG, cmdline);
+            struct job_t *job = getjobpid(jobs, pid);
+            printf("[%d] (%d) %s", job->jid, job->pid, cmdline);
+        }
+    }
+
     return;
 }
 
